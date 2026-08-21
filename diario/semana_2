@@ -1,0 +1,7 @@
+## Semana 2 — 21/08
+
+**Qué intentamos.** Instalar GitHub Desktop y aprender a usarlo, clonar el repositorio de la profe y armar mi propia bitácora en un repo aparte.
+
+**Qué falló.** Al crear el archivo de respuestas se guardó sin extensión y no lo reconocía como markdown, tuve que renombrarlo. También tuve problemas instalando pandas y las librerías de Python, costó bastante que funcionara bien.
+
+**Qué decidimos.** Renombrar el archivo agregando `.md`, y seguir instalando las librerías una por una hasta que anduvieron. Después subí el archivo con las respuestas del ejercicio de la clase 3.
