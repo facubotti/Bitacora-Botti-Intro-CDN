@@ -1,75 +1,53 @@
-"""
-Analisis del dataset de conteo vehicular en avenidas de Montevideo (Agosto 2026).
-
-Filtra los datos por avenida, fecha y volumen, y calcula el promedio
-de vehiculos por hora en Bv Artigas.
-
-Fuente: https://catalogodatos.gub.uy/dataset/conteo-vehicular-en-las-principales-avenidas-de-montevideo
-El CSV se descarga con funciones/descargar_conteo_vehicular.py (no se versiona, pesa >700MB).
-"""
-
-import pandas as pd
+# %%
 from pathlib import Path
+import pandas as pd
 
-RUTA_CSV = Path(__file__).resolve().parent.parent / "Dataset de Datos Abiertos" / "Conteo_Agosto_2026.csv"
+# 1. Definir la ruta del archivo
+# (correr este script desde la raiz del repo)
+BASE_DIR = Path.cwd()
+ruta_csv = BASE_DIR / "BITACORA" / "Dataset de Datos Abiertos" / "Conteo_Agosto_2026.csv"
 
-COLUMNAS = ["cod_detector", "id_carril", "fecha", "hora", "dsc_avenida", "volumen_hora"]
+# 2. Verificar que el archivo existe antes de cargarlo
+if not ruta_csv.exists():
+    raise FileNotFoundError(f"No se encontró el archivo en: {ruta_csv}. Correr primero descargar_conteo_vehicular.py")
 
-# En el dataset "Bv Artigas" tambien aparece mal escrito como "Bv. Artgias"
-CORRECCIONES_AVENIDA = {"Bv. Artgias": "Bv Artigas"}
+# 3. Cargar el archivo CSV
+df = pd.read_csv(ruta_csv)
 
+print(f"--- Archivo cargado desde: {ruta_csv.name} ---")
+print(df.shape)
+print(df.head())
 
-def cargar_datos():
-    """Lee el CSV en partes porque es muy pesado para cargarlo entero de una
-    (mas de 8 millones de filas). Corrige el nombre de avenida mal escrito."""
-    partes = []
-    for parte in pd.read_csv(RUTA_CSV, usecols=COLUMNAS, chunksize=500_000):
-        parte["dsc_avenida"] = parte["dsc_avenida"].replace(CORRECCIONES_AVENIDA)
-        partes.append(parte)
-    return pd.concat(partes, ignore_index=True)
+# 4. Corregir un error de tipeo: "Bv Artigas" aparece tambien como "Bv. Artgias"
+df["dsc_avenida"] = df["dsc_avenida"].replace({"Bv. Artgias": "Bv Artigas"})
 
+# 5. Filtrar por avenida
+filtro_avenida = df[df["dsc_avenida"] == "Bv Artigas"]
+print(f"Filas en Bv Artigas: {len(filtro_avenida)}")
 
-def filtrar_por_avenida(df, avenida):
-    return df[df["dsc_avenida"] == avenida]
+# 6. Filtrar por fecha (primera semana de agosto, a modo de ejemplo)
+filtro_fecha = filtro_avenida[(filtro_avenida["fecha"] >= "2026-08-01") & (filtro_avenida["fecha"] <= "2026-08-07")]
+print(f"Filas en la primera semana de agosto: {len(filtro_fecha)}")
 
+# 7. Filtrar por volumen (solo bloques de 5 min con 5 vehiculos o mas)
+filtro_volumen = filtro_avenida[filtro_avenida["volumen_hora"] >= 5]
+print(f"Filas con volumen >= 5: {len(filtro_volumen)}")
 
-def filtrar_por_fecha(df, fecha_desde, fecha_hasta):
-    return df[(df["fecha"] >= fecha_desde) & (df["fecha"] <= fecha_hasta)]
+# 8. Promedio de vehiculos por hora en Bv Artigas
+# La columna volumen_hora es en realidad el conteo cada 5 minutos, no por hora,
+# entonces primero sumo los bloques de cada hora y despues promedio entre
+# detectores, carriles y dias.
+filtro_avenida = filtro_avenida.copy()
+filtro_avenida["hora_del_dia"] = filtro_avenida["hora"].str[:2].astype(int)
 
+vehiculos_por_hora = (
+    filtro_avenida.groupby(["fecha", "hora_del_dia", "cod_detector", "id_carril"])["volumen_hora"]
+    .sum()
+    .reset_index(name="vehiculos")
+)
 
-def filtrar_por_volumen(df, minimo):
-    return df[df["volumen_hora"] >= minimo]
+promedio_horario = vehiculos_por_hora.groupby("hora_del_dia")["vehiculos"].mean().round(1)
 
-
-def promedio_vehiculos_por_hora(df):
-    """El dataset viene en bloques de 5 minutos (la columna se llama
-    volumen_hora pero es el conteo de esos 5 min, no de la hora entera).
-    Primero se suman los bloques de cada hora, y despues se promedia
-    entre todos los detectores y dias."""
-    df = df.copy()
-    df["hora_del_dia"] = df["hora"].str.slice(0, 2).astype(int)
-    vehiculos_por_hora = (
-        df.groupby(["fecha", "hora_del_dia", "cod_detector", "id_carril"])["volumen_hora"]
-        .sum()
-        .reset_index(name="vehiculos")
-    )
-    return vehiculos_por_hora.groupby("hora_del_dia")["vehiculos"].mean().round(1)
-
-
-if __name__ == "__main__":
-    datos = cargar_datos()
-
-    # ejemplos de los tres filtros pedidos
-    datos_bv_artigas = filtrar_por_avenida(datos, "Bv Artigas")
-    datos_primera_semana = filtrar_por_fecha(datos_bv_artigas, "2026-08-01", "2026-08-07")
-    datos_con_trafico = filtrar_por_volumen(datos_bv_artigas, 5)
-
-    print(f"Filas totales: {len(datos)}")
-    print(f"Filas en Bv Artigas: {len(datos_bv_artigas)}")
-    print(f"Filas en Bv Artigas, primera semana de agosto: {len(datos_primera_semana)}")
-    print(f"Filas en Bv Artigas con volumen >= 5: {len(datos_con_trafico)}")
-
-    print("\nPromedio de vehiculos por hora en Bv Artigas:")
-    promedio = promedio_vehiculos_por_hora(datos_bv_artigas)
-    print(promedio)
-    print(f"\nPromedio general (todas las horas): {promedio.mean():.1f} vehiculos/hora")
+print("\nPromedio de vehiculos por hora en Bv Artigas:")
+print(promedio_horario)
+print(f"\nPromedio general (todas las horas): {promedio_horario.mean():.1f} vehiculos/hora")
