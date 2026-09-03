@@ -1,0 +1,4 @@
+.DS_Store
+
+# Datos crudos: no se versionan, solo el codigo que los descarga
+BITACORA/Dataset de Datos Abiertos/
