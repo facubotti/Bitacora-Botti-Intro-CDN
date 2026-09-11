@@ -27,5 +27,3 @@ Dos cosas que noté al mirar los datos:
 | 11   | 328.3    | 23   | 145.1    |
 
 Promedio general: 235.0 vehículos/hora. Mínimo de madrugada (3-4hs), pico entre las 16 y 18hs.
-
-*Usé IA para escribir el código de descarga y análisis; corrí los scripts y revisé los resultados.*
